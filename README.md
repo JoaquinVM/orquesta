@@ -15,6 +15,12 @@
 
 Cuanto más larga tu racha sin errores, más puntos vale cada tarea.
 
+### Modos y progreso
+
+- **📅 Reto diario:** cada día, las mismas tareas para todo el mundo. Compara tu puntuación y mantén tu racha de días.
+- **🏅 14 logros** y **7 rangos**, de Becario a Director de orquesta.
+- **Resultado para compartir** al estilo Wordle: 🟩 especialista · 🟨 no especialista · 🐞 bug · 🟥 fallo.
+
 ## Por qué existe
 
 Trabajo a diario con un sistema de agentes de IA que reparten y revisan trabajo. Este juego es la versión jugable de ese problema: **orquestar bien importa más que tener muchos agentes**.
@@ -44,6 +50,8 @@ Para jugar en local, abre `index.html` en el navegador.
 4. Every level you pick an upgrade: hire, train an agent, better tools, automated review…
 
 The longer your streak, the more each task is worth.
+
+**Modes & progress:** a 📅 daily challenge (same tasks for everyone, keep your day streak), 14 achievements, 7 ranks from Intern to Maestro, and a Wordle-style shareable result grid.
 
 ### Tech
 

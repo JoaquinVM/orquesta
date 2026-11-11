@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Orquesta · Agent dispatcher</title>
-<meta name="description" content="Dirige un equipo de agentes de IA: reparte cada tarea al agente adecuado antes de que se acumulen. Juego de navegador gratuito. / Lead a team of AI agents in this free browser game.">
+<meta name="description" content="Dirige un equipo de agentes de IA: reparte cada tarea al agente adecuado antes de que se acumulen. Reto diario, logros y rangos. / Lead a team of AI agents in this free browser game.">
 <meta property="og:title" content="Orquesta: dirige un equipo de agentes de IA">
-<meta property="og:description" content="Llegan tareas sin parar. Dale cada una al agente adecuado antes de que se acumulen. ¿Cuántos puntos haces?">
+<meta property="og:description" content="Llegan tareas sin parar. Dale cada una al agente adecuado antes de que se acumulen. Reto diario: ¿cuántos puntos haces?">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0b1020">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎼</text></svg>">
@@ -29,9 +29,11 @@ body{
   color:var(--text);
   font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   -webkit-tap-highlight-color:transparent;
+  overflow-x:hidden;
 }
 button{font:inherit;color:inherit}
 #app{max-width:1120px;margin:0 auto;padding:14px 16px 18px;min-height:100vh;display:flex;flex-direction:column;gap:12px}
+#app.shake{animation:shake .28s}
 
 /* Header */
 header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -40,27 +42,35 @@ header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .brand h1{margin:0;font-size:20px;font-weight:800;letter-spacing:.2px}
 .brand p{margin:0;font-size:12px;color:var(--muted)}
 .hud{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 10px;min-width:62px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 10px;min-width:62px;transition:border-color .3s}
 .stat b{display:block;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.stat span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.stat span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stat.streak b{color:var(--accent2)}
+.stat.hot{border-color:#f97316;box-shadow:0 0 14px rgba(249,115,22,.35)}
+.stat.hot b{color:#fb923c}
+.stat .goal{display:block;height:3px;border-radius:2px;background:rgba(255,255,255,.08);margin-top:3px;overflow:hidden}
+.stat .goal i{display:block;height:100%;width:0;background:var(--warn);transition:width .3s}
+.stat.beaten .goal i{background:var(--good)}
+.bump{animation:bump .25s}
 .ctrl{display:flex;gap:6px}
 .btn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600;transition:transform .1s,background .2s}
 .btn:hover{background:#202c4d}
 .btn:active{transform:scale(.97)}
 .btn.primary{background:linear-gradient(135deg,var(--accent),#6d28d9);border-color:transparent}
 .btn.primary:hover{filter:brightness(1.1)}
+.btn.daily{background:linear-gradient(135deg,#f59e0b,#ea580c);border-color:transparent;color:#1a1205}
 
 /* Board */
 main{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;flex:1;align-items:start}
 .panel{background:rgba(18,26,47,.82);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px}
-.panel h2{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.panel h2{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mode{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.16);color:var(--warn);text-transform:none;letter-spacing:0}
 .slots{font-variant-numeric:tabular-nums;padding:2px 8px;border-radius:999px;background:var(--panel2)}
 .slots.full{background:rgba(248,113,113,.18);color:var(--bad)}
 #tasks{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-content:start;min-height:230px}
 .empty{grid-column:1/-1;color:var(--muted);text-align:center;padding:60px 0;font-size:14px}
 
-.task{position:relative;text-align:left;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:12px;padding:9px 10px 13px;cursor:pointer;overflow:hidden;animation:pop .25s ease-out;transition:transform .15s,box-shadow .15s}
+.task{position:relative;text-align:left;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:12px;padding:9px 10px 13px;cursor:pointer;overflow:hidden;animation:drop .3s cubic-bezier(.2,1.4,.4,1);transition:transform .15s,box-shadow .15s}
 .task:hover{transform:translateY(-1px)}
 .task.sel{outline:2px solid var(--accent2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(34,211,238,.25)}
 .task .tn{font-weight:650;font-size:14px;line-height:1.25}
@@ -72,10 +82,13 @@ main{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;flex:1;align-items:s
 .task.urgent .pat i{background:var(--bad)}
 .task.urgent{animation:pulse 1s ease-in-out infinite}
 .task.bug{background:linear-gradient(135deg,rgba(248,113,113,.14),var(--panel2) 60%)}
+.task.hint{box-shadow:0 0 0 2px var(--accent2);animation:hint 1.2s ease-in-out infinite}
 
 #agents{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
 .agent{position:relative;text-align:left;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:10px;cursor:pointer;transition:opacity .2s,box-shadow .2s,transform .15s;animation:pop .3s ease-out}
-.agent .av{font-size:26px;width:44px;height:44px;display:grid;place-items:center;background:var(--panel);border-radius:12px;grid-row:span 2}
+.agent .av{font-size:26px;width:44px;height:44px;display:grid;place-items:center;background:var(--panel);border-radius:12px;grid-row:span 2;transition:transform .2s}
+.agent:not(.busy) .av{animation:bob 2.4s ease-in-out infinite}
+.agent.busy .av{animation:work .5s ease-in-out infinite alternate}
 .agent .an{font-weight:700}
 .agent .sk{display:flex;gap:4px;flex-wrap:wrap}
 .chip{font-size:11px;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 35%,transparent)}
@@ -87,6 +100,7 @@ main{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;flex:1;align-items:s
 .agent.weak{box-shadow:0 0 0 2px var(--warn)}
 .agent.nope{opacity:.4}
 .agent.shake{animation:shake .3s}
+.agent.flash{animation:flash .45s}
 .tip{font-size:12px;color:var(--muted);line-height:1.5}
 .tip .chip{margin-right:2px}
 
@@ -98,14 +112,19 @@ main{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;flex:1;align-items:s
 /* Overlays */
 .overlay{position:fixed;inset:0;background:rgba(5,8,18,.74);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px;z-index:10}
 .overlay[hidden]{display:none}
-.card{max-width:540px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:24px;max-height:calc(100vh - 32px);overflow:auto;animation:pop .25s ease-out;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.card{max-width:560px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:24px;max-height:calc(100vh - 32px);overflow:auto;animation:pop .25s ease-out;box-shadow:0 30px 80px rgba(0,0,0,.5)}
 .card h2{margin:0 0 6px;font-size:26px}
 .card .big{font-size:42px;line-height:1}
 .card p{color:var(--muted);margin:6px 0 14px}
 .card ol{padding-left:20px;margin:0 0 18px;display:grid;gap:8px}
-.card .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.card .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.card .kb{font-size:11px;color:var(--muted)}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.meta span{font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--muted)}
+.meta b{color:var(--text)}
 .ups{display:grid;gap:10px;margin-top:8px}
-.up{display:flex;gap:12px;align-items:center;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;transition:transform .12s,border-color .2s}
+.up{display:flex;gap:12px;align-items:center;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;transition:transform .12s,border-color .2s;animation:pop .3s ease-out backwards}
+.up:nth-child(2){animation-delay:.06s}.up:nth-child(3){animation-delay:.12s}
 .up:hover,.up:focus-visible{border-color:var(--accent);transform:translateY(-1px)}
 .up .i{font-size:26px;width:40px;text-align:center}
 .up b{display:block}
@@ -116,15 +135,43 @@ main{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;flex:1;align-items:s
 .results b{display:block;font-size:22px}
 .results span{font-size:11px;color:var(--muted)}
 .badge{display:inline-block;background:linear-gradient(135deg,var(--warn),#f97316);color:#1a1205;font-weight:800;border-radius:999px;padding:3px 10px;font-size:12px}
+.rank{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:12px;padding:10px 12px;margin:0 0 10px}
+.rank .ri{font-size:28px}
+.rank .rn{display:block;font-size:17px}
+.rank small{display:block;color:var(--muted)}
+.rank small b{color:var(--text)}
+.rank .rb{height:5px;background:rgba(255,255,255,.08);border-radius:3px;margin-top:5px;overflow:hidden}
+.rank .rb i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.near{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:var(--warn);border-radius:12px;padding:8px 12px;font-size:13px;margin:0 0 10px}
+.grid{font-size:14px;line-height:1.25;letter-spacing:1px;background:var(--panel2);border-radius:12px;padding:10px 12px;margin:0 0 10px;white-space:pre-wrap;word-break:break-all}
+.achs{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;margin:4px 0 14px}
+.achs span{display:grid;place-items:center;height:42px;border-radius:10px;background:var(--panel2);font-size:20px;border:1px solid var(--line)}
+.achs span.off{filter:grayscale(1);opacity:.3}
 
+/* Juice */
 .float{position:fixed;font-weight:800;color:var(--good);pointer-events:none;animation:rise 1s ease-out forwards;z-index:5;text-shadow:0 2px 8px rgba(0,0,0,.6)}
 .float.bad{color:var(--bad)}
+.spark{position:fixed;width:7px;height:7px;border-radius:2px;pointer-events:none;z-index:6;animation:spark .7s cubic-bezier(.1,.6,.3,1) forwards}
+.combo{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);font-size:44px;font-weight:900;pointer-events:none;z-index:7;color:#fb923c;text-shadow:0 4px 24px rgba(249,115,22,.6);animation:combo 1s ease-out forwards;white-space:nowrap}
+#toasts{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:grid;gap:6px;z-index:20;pointer-events:none;width:min(92vw,360px)}
+.toast{background:var(--panel);border:1px solid var(--warn);border-radius:12px;padding:8px 12px;display:flex;gap:10px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:toast 3s ease-in-out forwards}
+.toast .ti{font-size:22px}
+.toast small{display:block;color:var(--muted);font-size:11px}
 body.hurt::after{content:"";position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 0 3px var(--bad),inset 0 0 90px rgba(248,113,113,.35);animation:fade .6s forwards;z-index:4}
 
 @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+@keyframes drop{from{opacity:0;transform:translateY(-14px) scale(.9)}to{opacity:1;transform:none}}
 @keyframes pulse{50%{border-color:var(--bad)}}
-@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@keyframes hint{50%{box-shadow:0 0 0 5px rgba(34,211,238,.35)}}
+@keyframes shake{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@keyframes bump{50%{transform:scale(1.18)}}
+@keyframes bob{50%{transform:translateY(-2px)}}
+@keyframes work{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+@keyframes flash{30%{box-shadow:0 0 0 2px var(--good),0 0 30px rgba(74,222,128,.55)}}
 @keyframes rise{to{transform:translateY(-40px);opacity:0}}
+@keyframes spark{to{transform:translate(var(--dx),var(--dy)) rotate(220deg);opacity:0}}
+@keyframes combo{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}35%{transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-90%) scale(1)}}
+@keyframes toast{0%{opacity:0;transform:translateY(-10px)}10%,85%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-10px)}}
 @keyframes fade{to{opacity:0}}
 @keyframes fadeIn{from{opacity:0}}
 
@@ -132,7 +179,7 @@ body.hurt::after{content:"";position:fixed;inset:0;pointer-events:none;box-shado
   main{grid-template-columns:1fr}
   .ctrl{order:2;margin-left:auto}
   .hud{order:3;margin-left:0;width:100%}
-  .stat{flex:1;min-width:0}
+  .stat{flex:1;min-width:0;padding:4px 8px}
   #tasks{grid-template-columns:repeat(2,minmax(0,1fr));min-height:160px}
   #agents{grid-template-columns:repeat(2,minmax(0,1fr))}
   .agent{grid-template-columns:1fr;padding:8px}
@@ -140,7 +187,9 @@ body.hurt::after{content:"";position:fixed;inset:0;pointer-events:none;box-shado
   .agent .kbd{display:none}
   .card{padding:18px}
   .results b{font-size:18px}
+  .combo{font-size:34px}
 }
+@media (pointer:coarse){.card .kb.keys,.foot [data-t=keys]{display:none}}
 @media (prefers-reduced-motion:reduce){*,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -152,12 +201,13 @@ body.hurt::after{content:"";position:fixed;inset:0;pointer-events:none;box-shado
       <div><h1>Orquesta</h1><p data-t="sub"></p></div>
     </div>
     <div class="hud">
-      <div class="stat"><span data-t="score"></span><b id="hScore">0</b></div>
-      <div class="stat streak"><span data-t="streak"></span><b id="hStreak">×1.0</b></div>
+      <div class="stat" id="sScore"><span data-t="score"></span><b id="hScore">0</b><span class="goal" title=""><i id="hGoal"></i></span></div>
+      <div class="stat streak" id="sStreak"><span data-t="streak"></span><b id="hStreak">×1.0</b></div>
       <div class="stat"><span data-t="level"></span><b id="hLevel">1</b></div>
       <div class="stat"><span data-t="rep"></span><b id="hRep">❤️❤️❤️</b></div>
     </div>
     <div class="ctrl">
+      <button class="btn" id="soundBtn" aria-label="Sound">🔊</button>
       <button class="btn" id="langBtn" aria-label="Language">EN</button>
       <button class="btn" id="pauseBtn" aria-label="Pause">⏸</button>
     </div>
@@ -165,7 +215,7 @@ body.hurt::after{content:"";position:fixed;inset:0;pointer-events:none;box-shado
 
   <main>
     <section class="panel">
-      <h2><span data-t="inbox"></span><span class="slots" id="slots">0/7</span></h2>
+      <h2><span data-t="inbox"></span><span style="display:flex;gap:6px;align-items:center"><span class="mode" id="modeTag" hidden></span><span class="slots" id="slots">0/7</span></span></h2>
       <div id="tasks"></div>
     </section>
     <section class="panel">
@@ -182,6 +232,7 @@ body.hurt::after{content:"";position:fixed;inset:0;pointer-events:none;box-shado
   </div>
 </div>
 
+<div id="toasts" aria-live="polite"></div>
 <div class="overlay" id="overlay" hidden><div class="card" id="card" role="dialog" aria-modal="true"></div></div>
 
 <script>
@@ -190,13 +241,43 @@ body.hurt::after{content:"";position:fixed;inset:0;pointer-events:none;box-shado
 
 /* ---------- Content ---------- */
 const TYPES = {
-  code:   { icon: '💻', c: 'var(--code)' },
-  design: { icon: '🎨', c: 'var(--design)' },
-  test:   { icon: '🧪', c: 'var(--test)' },
-  data:   { icon: '📊', c: 'var(--data)' },
+  code:   { icon: '💻', c: 'var(--code)',   hex: '#60a5fa' },
+  design: { icon: '🎨', c: 'var(--design)', hex: '#f472b6' },
+  test:   { icon: '🧪', c: 'var(--test)',   hex: '#4ade80' },
+  data:   { icon: '📊', c: 'var(--data)',   hex: '#facc15' },
 };
 const AGENT_POOL = [['Nova','🤖'],['Pixel','👾'],['Probe','🛰️'],['Quant','🧠'],['Echo','🦉'],['Atlas','🦾'],['Lumen','✨'],['Byte','🐙']];
 const MAX_AGENTS = 6;
+const LAUNCH = Date.UTC(2026, 10, 10);
+
+// Rank ladder: a named identity to climb is a stronger goal than a raw number.
+const RANKS = [
+  [0,    '🎒', 'Becario',            'Intern'],
+  [250,  '🌱', 'Junior',             'Junior'],
+  [700,  '🛠️', 'Senior',             'Senior'],
+  [1400, '🧭', 'Tech Lead',          'Tech Lead'],
+  [2400, '🧠', 'Head of AI',         'Head of AI'],
+  [3800, '🚀', 'CTO',                'CTO'],
+  [5500, '🎼', 'Director de orquesta','Maestro'],
+];
+
+// Achievements: long-term goals that reward exploring different strategies.
+const ACH = [
+  ['first',    '✅', 'Primera tarea',        'First task',          'Completa una tarea.',                    'Finish a task.'],
+  ['streak10', '🔥', 'En racha',             'On fire',             'Racha de 10 sin fallar.',                '10-task streak.'],
+  ['streak25', '☄️', 'Imparable',            'Unstoppable',         'Racha de 25 sin fallar.',                '25-task streak.'],
+  ['level5',   '⭐', 'Nivel 5',              'Level 5',             'Llega al nivel 5.',                      'Reach level 5.'],
+  ['level8',   '🌟', 'Nivel 8',              'Level 8',             'Llega al nivel 8.',                      'Reach level 8.'],
+  ['s1000',    '💯', '1.000 puntos',         '1,000 points',        'Haz 1.000 puntos en una partida.',       'Score 1,000 in one run.'],
+  ['s3000',    '🏆', '3.000 puntos',         '3,000 points',        'Haz 3.000 puntos en una partida.',       'Score 3,000 in one run.'],
+  ['team',     '🤝', 'Equipo completo',      'Full house',          'Ten 6 agentes a la vez.',                'Have 6 agents at once.'],
+  ['poly',     '📚', 'Polivalente',          'Multi-skilled',       'Forma a un agente en 2 áreas.',          'Train an agent in 2 skills.'],
+  ['clean',    '🛡️', 'Código limpio',        'Clean code',          'Llega al nivel 4 sin ningún bug.',       'Reach level 4 with zero bugs.'],
+  ['flawless', '💎', 'Impecable',            'Flawless',            'Llega al nivel 5 sin perder ❤️.',        'Reach level 5 without losing ❤️.'],
+  ['daily',    '📅', 'Reto diario',          'Daily player',        'Juega un reto diario.',                  'Play a daily challenge.'],
+  ['days3',    '🗓️', 'Tres días seguidos',   'Three in a row',      'Juega el reto 3 días seguidos.',         'Play the daily 3 days in a row.'],
+  ['master',   '🎼', 'Maestro',              'Maestro',             'Alcanza el rango más alto.',             'Reach the top rank.'],
+];
 
 const STR = {
   es: {
@@ -214,17 +295,20 @@ const STR = {
     bug: '🐞 Bug: ',
     tipIdle: 'Toca una tarea y después un agente. Los especialistas (<span class="chip" style="--c:var(--good)">verde</span>) son rápidos y casi no dejan bugs.',
     tipSel: 'Ahora toca un agente. <span class="chip" style="--c:var(--good)">verde</span> = especialista · <span class="chip" style="--c:var(--warn)">amarillo</span> = lento y con riesgo de bug.',
-    keys: 'Teclas: 1–6 asignan · Esc deselecciona · P pausa',
+    keys: 'Teclas: 1–6 asignan · Esc deselecciona · P pausa · M sonido',
     source: 'Código en GitHub',
     tagline: 'Diriges un equipo de agentes de IA y las tareas no dejan de llegar. Tu trabajo: dar cada una al agente adecuado antes de que se acumulen.',
     how: [
       '<b>Toca una tarea y luego un agente</b> para asignársela (o pulsa 1–6).',
-      'Los <b>especialistas</b> trabajan rápido y casi sin bugs. Los demás tardan más y a veces dejan <b>bugs 🐞</b> que vuelven a la bandeja.',
-      'Si una tarea <b>espera demasiado</b> o la <b>bandeja se llena</b>, pierdes ❤️. Con 0, se acaba la partida.',
-      'Cada nivel eliges una <b>mejora</b>: contratar, formar al equipo o automatizar.',
+      'Los <b>especialistas</b> trabajan rápido y casi sin bugs. Los demás tardan más y a veces dejan <b>bugs 🐞</b>.',
+      'Si una tarea <b>espera demasiado</b> o la <b>bandeja se llena</b>, pierdes ❤️.',
+      'Encadena tareas para subir la <b>racha 🔥</b>: cada tarea vale más.',
     ],
-    start: 'Empezar', again: 'Jugar otra vez', share: 'Compartir resultado', copied: '¡Copiado! Pégalo donde quieras.',
-    paused: 'Pausa', pausedSub: 'El equipo se ha ido a por café ☕', resume: 'Seguir',
+    free: 'Partida libre', daily: 'Reto diario #{n}', dailyTag: 'Reto #{n}',
+    dailyInfo: 'Mismas tareas para todo el mundo hoy', dailyDone: 'Tu mejor hoy: <b>{s}</b>',
+    dStreak: '🔥 <b>{n}</b> días seguidos', rankNow: 'Rango: <b>{r}</b>', achCount: 'Logros: <b>{n}/{t}</b>', bestL: 'Récord: <b>{s}</b>',
+    again: 'Otra partida', share: 'Compartir resultado', copied: '¡Copiado! Pégalo en LinkedIn o donde quieras.',
+    paused: 'Pausa', pausedSub: 'El equipo se ha ido a por café ☕', resume: 'Seguir', menu: 'Menú',
     levelUp: '¡Nivel {n}!', pick: 'Elige una mejora para tu equipo:',
     up: {
       hire: ['Contratar a {name}', 'Nuevo agente especialista en {type}.'],
@@ -234,10 +318,18 @@ const STR = {
       heal: ['Recuperar reputación', 'Recuperas un ❤️.'],
       qa: ['Revisión automática', 'A partir de ahora, la mitad de bugs.'],
     },
-    over: 'Fin de la partida', overSub: 'Tu reputación llegó a cero. Ningún equipo aguanta para siempre.',
-    rDone: 'tareas', rLevel: 'nivel', rBest: 'récord', newBest: '🏆 ¡Nuevo récord!',
+    over: 'Fin de la partida', overSub: 'Tu reputación llegó a cero.',
+    rDone: 'tareas', rLevel: 'nivel', newBest: '🏆 ¡Nuevo récord!',
+    nearBest: '😬 Te faltaron <b>{n}</b> puntos para tu récord.',
+    nearRank: '🎯 A <b>{n}</b> puntos de ser <b>{r}</b>.',
+    nearLevel: '⭐ Estabas a <b>{n}</b> {u} del nivel {l}.', taskU: 'tarea', tasksU: 'tareas',
+    rankTitle: 'Tu rango', topRank: '¡Rango máximo!',
+    achToast: 'Logro desbloqueado', recordToast: '¡Nuevo récord!', recordSub: 'Sigue, que ya es tuyo',
+    rankToast: 'Ascenso: {r}', rankSub: 'Nuevo rango desbloqueado',
+    combo: '🔥 Racha ×{n}',
     log: {
       start: 'Primer día en la oficina. Empiezan a llegar tareas…',
+      startDaily: 'Reto diario #{n}: hoy todo el mundo recibe las mismas tareas.',
       done: '{a} terminó «{t}» (+{p})',
       bug: '🐞 Ha aparecido un bug en «{t}»',
       missed: '⌛ «{t}» esperó demasiado (−❤️)',
@@ -246,7 +338,9 @@ const STR = {
       select: 'Primero elige una tarea de la bandeja',
       newType: '📊 ¡Empiezan a llegar tareas de Datos!',
     },
-    shareText: 'Coordiné {d} tareas y saqué {s} puntos dirigiendo un equipo de agentes de IA en Orquesta 🎼 ¿Me superas?',
+    shareFree: 'Orquesta 🎼 {s} puntos · nivel {l} · {r}',
+    shareDaily: 'Orquesta 🎼 Reto #{n} · {s} puntos · nivel {l}',
+    shareTail: '¿Me superas dirigiendo agentes de IA?',
   },
   en: {
     sub: 'Lead a team of AI agents',
@@ -263,17 +357,20 @@ const STR = {
     bug: '🐞 Bug: ',
     tipIdle: 'Tap a task, then an agent. Specialists (<span class="chip" style="--c:var(--good)">green</span>) are fast and rarely ship bugs.',
     tipSel: 'Now tap an agent. <span class="chip" style="--c:var(--good)">green</span> = specialist · <span class="chip" style="--c:var(--warn)">yellow</span> = slow and may ship a bug.',
-    keys: 'Keys: 1–6 assign · Esc deselects · P pauses',
+    keys: 'Keys: 1–6 assign · Esc deselects · P pauses · M sound',
     source: 'Source on GitHub',
     tagline: 'You lead a team of AI agents and tasks keep pouring in. Your job: hand each one to the right agent before they pile up.',
     how: [
       '<b>Tap a task, then an agent</b> to assign it (or press 1–6).',
-      '<b>Specialists</b> work fast and almost bug-free. Everyone else is slower and sometimes ships <b>bugs 🐞</b> that come back to the inbox.',
-      'If a task <b>waits too long</b> or the <b>inbox overflows</b>, you lose ❤️. At 0, it’s game over.',
-      'Every level you pick an <b>upgrade</b>: hire, train or automate.',
+      '<b>Specialists</b> are fast and almost bug-free. Everyone else is slower and sometimes ships <b>bugs 🐞</b>.',
+      'If a task <b>waits too long</b> or the <b>inbox overflows</b>, you lose ❤️.',
+      'Chain tasks to build your <b>streak 🔥</b>: every task is worth more.',
     ],
-    start: 'Start', again: 'Play again', share: 'Share result', copied: 'Copied! Paste it anywhere.',
-    paused: 'Paused', pausedSub: 'The team went for coffee ☕', resume: 'Resume',
+    free: 'Free play', daily: 'Daily challenge #{n}', dailyTag: 'Daily #{n}',
+    dailyInfo: 'Same tasks for everyone today', dailyDone: 'Your best today: <b>{s}</b>',
+    dStreak: '🔥 <b>{n}</b>-day streak', rankNow: 'Rank: <b>{r}</b>', achCount: 'Achievements: <b>{n}/{t}</b>', bestL: 'Best: <b>{s}</b>',
+    again: 'Play again', share: 'Share result', copied: 'Copied! Paste it on LinkedIn or anywhere.',
+    paused: 'Paused', pausedSub: 'The team went for coffee ☕', resume: 'Resume', menu: 'Menu',
     levelUp: 'Level {n}!', pick: 'Pick an upgrade for your team:',
     up: {
       hire: ['Hire {name}', 'New agent specialised in {type}.'],
@@ -283,10 +380,18 @@ const STR = {
       heal: ['Win back trust', 'Recover one ❤️.'],
       qa: ['Automated review', 'Half as many bugs from now on.'],
     },
-    over: 'Game over', overSub: 'Your reputation hit zero. No team lasts forever.',
-    rDone: 'tasks', rLevel: 'level', rBest: 'best', newBest: '🏆 New high score!',
+    over: 'Game over', overSub: 'Your reputation hit zero.',
+    rDone: 'tasks', rLevel: 'level', newBest: '🏆 New high score!',
+    nearBest: '😬 Just <b>{n}</b> points short of your best.',
+    nearRank: '🎯 <b>{n}</b> points away from <b>{r}</b>.',
+    nearLevel: '⭐ You were <b>{n}</b> {u} away from level {l}.', taskU: 'task', tasksU: 'tasks',
+    rankTitle: 'Your rank', topRank: 'Top rank!',
+    achToast: 'Achievement unlocked', recordToast: 'New high score!', recordSub: 'Keep going, it’s yours',
+    rankToast: 'Promoted: {r}', rankSub: 'New rank unlocked',
+    combo: '🔥 Streak ×{n}',
     log: {
       start: 'First day at the office. Tasks start coming in…',
+      startDaily: 'Daily challenge #{n}: everyone gets the same tasks today.',
       done: '{a} finished “{t}” (+{p})',
       bug: '🐞 A bug showed up in “{t}”',
       missed: '⌛ “{t}” waited too long (−❤️)',
@@ -295,26 +400,73 @@ const STR = {
       select: 'Pick a task from the inbox first',
       newType: '📊 Data tasks are coming in!',
     },
-    shareText: 'I handled {d} tasks and scored {s} points leading a team of AI agents in Orquesta 🎼 Can you beat me?',
+    shareFree: 'Orquesta 🎼 {s} points · level {l} · {r}',
+    shareDaily: 'Orquesta 🎼 Daily #{n} · {s} points · level {l}',
+    shareTail: 'Can you beat me at leading AI agents?',
   },
 };
 
 /* ---------- Helpers ---------- */
 const $ = s => document.querySelector(s);
-const rnd = (a, b) => a + Math.random() * (b - a);
-const pick = a => a[Math.floor(Math.random() * a.length)];
-const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? '');
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const store = {
-  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
-};
+const nf = n => n.toLocaleString(lang === 'es' ? 'es-ES' : 'en-US');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Seeded RNG so the daily challenge deals the same tasks to everyone.
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const R = { deal: Math.random, luck: Math.random };
+const rnd = (a, b, r = R.luck) => a + r() * (b - a);
+const pick = (a, r = R.luck) => a[Math.floor(r() * a.length)];
+const shuffle = (a, r = R.luck) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const dayKey = (d = new Date()) => d.toISOString().slice(0, 10);
+const dayNum = () => { const d = new Date(); return Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - LAUNCH) / 864e5) + 1; };
 
-let lang = store.get('orq-lang') || ((navigator.language || '').toLowerCase().startsWith('es') ? 'es' : 'en');
+// Persistent progress (per browser). Every access is guarded: storage can be blocked.
+const P = (() => {
+  let d = {};
+  try { d = JSON.parse(localStorage.getItem('orq-data') || '{}') || {}; } catch (e) {}
+  try { if (!d.best) d.best = +localStorage.getItem('orq-best') || 0; } catch (e) {}
+  return Object.assign({ best: 0, ach: [], daily: {}, dlast: '', dstreak: 0, games: 0, sound: true, lang: '' }, d);
+})();
+const save = () => { try { localStorage.setItem('orq-data', JSON.stringify(P)); } catch (e) {} };
+
+let lang = P.lang || ((navigator.language || '').toLowerCase().startsWith('es') ? 'es' : 'en');
 const T = () => STR[lang];
-const taskName = t => (t.bug ? T().bug : '') + T().tasks[t.type][t.name % T().tasks[t.type].length];
+const taskName = t => (t.bug ? T().bug : '') + T().tasks[t.type][t.name % 8];
 const typeName = ty => T().types[ty];
+const rankOf = s => { let i = 0; RANKS.forEach((r, k) => { if (s >= r[0]) i = k; }); return i; };
+const rankName = i => RANKS[i][lang === 'es' ? 2 : 3];
+
+/* ---------- Sound (Web Audio, no files) ---------- */
+let actx = null;
+function tone(freq, dur = 0.12, type = 'sine', vol = 0.07, delay = 0) {
+  if (!P.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const t = actx.currentTime + delay;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(actx.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  } catch (e) {}
+}
+const sfx = {
+  select: () => tone(660, .05, 'triangle', .04),
+  assign: () => { tone(523, .07, 'triangle', .05); tone(784, .08, 'triangle', .045, .05); },
+  // Pitch climbs a semitone per streak step: you can *hear* the combo building.
+  done: s => { const f = 440 * Math.pow(2, Math.min(s, 14) / 12); tone(f, .12, 'sine', .07); tone(f * 1.5, .18, 'sine', .05, .06); },
+  hurt: () => { tone(170, .25, 'sawtooth', .05); tone(110, .32, 'sawtooth', .045, .08); },
+  deny: () => tone(200, .08, 'square', .03),
+  level: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .2, 'triangle', .06, i * .08)),
+  ach: () => [784, 988, 1319, 1568].forEach((f, i) => tone(f, .22, 'sine', .05, i * .07)),
+  combo: () => [880, 1109, 1319].forEach((f, i) => tone(f, .14, 'square', .03, i * .05)),
+  over: () => [392, 330, 262].forEach((f, i) => tone(f, .3, 'triangle', .06, i * .16)),
+};
+const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
 
 /* ---------- State ---------- */
 let uid = 1, S, overlayView = null;
@@ -328,13 +480,16 @@ function nextAgentName() {
   const used = new Set(S.agents.map(a => a.name));
   return (AGENT_POOL.find(([n]) => !used.has(n)) || ['Agent'])[0];
 }
-function newGame() {
+function newGame(daily = false) {
+  const n = dayNum();
+  R.deal = daily ? mulberry32(n * 7919 + 17) : Math.random;
+  R.luck = daily ? mulberry32(n * 104729 + 3) : Math.random;
   S = {
-    t: 0, score: 0, streak: 0, rep: 3, level: 1, done: 0, nextLevelAt: 6,
-    cap: 7, spawnIn: 0.6, speed: 1, bugMul: 1, qa: false,
-    tasks: [], agents: [], pending: [], selected: null,
+    daily, dayN: n, t: 0, score: 0, streak: 0, maxStreak: 0, rep: 3, level: 1, done: 0, nextLevelAt: 6, prevLevelAt: 0,
+    cap: 7, spawnIn: 0.6, speed: 1, bugMul: 1, qa: false, bugs: 0, hurtCount: 0,
+    tasks: [], agents: [], pending: [], selected: null, trail: [],
     running: false, paused: false, over: false, dirty: true,
-    best: +store.get('orq-best') || 0,
+    startBest: daily ? (P.daily[dayKey()] || 0) : P.best, recordToasted: false, rank: 0,
   };
   ['code', 'design', 'test'].forEach(t => S.agents.push(mkAgent(t)));
 }
@@ -344,12 +499,12 @@ const isSpec = (a, t) => a.skills.includes(t.type);
 /* ---------- Game logic ---------- */
 function spawnTask(o = {}) {
   if (S.tasks.length >= S.cap) { hurt('overflow'); return; }
-  const type = o.type || pick(activeTypes());
+  const type = o.type || pick(activeTypes(), R.deal);
   const big = Math.min(0.3, 0.04 + S.level * 0.03);
-  const r = Math.random();
+  const r = R.deal();
   const size = o.size || (r < big ? 3 : r < big + 0.32 ? 2 : 1);
   const patience = o.patience || Math.max(9, 18 + size * 3 - S.level * 0.8);
-  S.tasks.push({ id: 't' + uid++, type, size, name: o.name ?? Math.floor(Math.random() * 64), bug: !!o.bug, patience, left: patience });
+  S.tasks.push({ id: 't' + uid++, type, size, name: o.name ?? Math.floor(R.deal() * 64), bug: !!o.bug, patience, left: patience });
   S.dirty = true;
 }
 
@@ -357,43 +512,70 @@ function assign(taskId, agentId) {
   const t = S.tasks.find(x => x.id === taskId);
   const a = S.agents.find(x => x.id === agentId);
   if (!t || !a) return;
-  const el = document.querySelector(`[data-a="${a.id}"]`);
-  if (a.task) { log(fmt(T().log.busy, { a: a.name })); if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); } return; }
+  const el = agentEls.get(a.id);
+  if (a.task) {
+    log(fmt(T().log.busy, { a: a.name })); sfx.deny();
+    if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+    return;
+  }
   S.tasks = S.tasks.filter(x => x !== t);
   a.task = t;
   a.progress = 0;
   a.work = (t.bug ? 2.2 : t.size * 3.2) / (S.speed * (isSpec(a, t) ? 1 : 0.45));
   S.selected = null;
   S.dirty = true;
+  sfx.assign();
 }
 
 function complete(a) {
   const t = a.task, spec = isSpec(a, t);
-  const mult = 1 + Math.min(S.streak, 10) * 0.1;
+  S.streak++; S.done++;
+  S.maxStreak = Math.max(S.maxStreak, S.streak);
+  const mult = 1 + Math.min(S.streak - 1, 10) * 0.1;
   const pts = Math.round((t.bug ? 5 : t.size * 10) * mult);
-  S.score += pts; S.streak++; S.done++;
-  if (!t.bug && Math.random() < (spec ? 0.04 : 0.38) * S.bugMul) {
+  S.score += pts;
+  S.trail.push(t.bug ? 'b' : spec ? 'g' : 'y');
+  if (!t.bug && R.luck() < (spec ? 0.04 : 0.38) * S.bugMul) {
     S.pending.push({ at: S.t + rnd(2.5, 5), type: t.type, name: t.name });
   }
-  floatAt(document.querySelector(`[data-a="${a.id}"]`), '+' + pts);
+  const el = agentEls.get(a.id);
+  floatAt(el, '+' + pts);
+  burst(el, TYPES[t.type].hex, 8 + Math.min(S.streak, 12));
+  if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+  bump('#hScore');
+  sfx.done(S.streak);
   log(fmt(T().log.done, { a: a.name, t: taskName(t), p: pts }));
   a.task = null; a.progress = 0;
   S.dirty = true;
+  if (S.streak % 5 === 0) { comboPop(fmt(T().combo, { n: S.streak })); sfx.combo(); buzz(30); }
+  // Mid-run milestones: passing your record or a rank is celebrated the moment it happens.
+  if (!S.recordToasted && S.startBest > 0 && S.score > S.startBest) {
+    S.recordToasted = true; toast('🏆', T().recordToast, T().recordSub);
+  }
+  const rk = rankOf(S.score);
+  if (rk > S.rank) { S.rank = rk; toast(RANKS[rk][1], fmt(T().rankToast, { r: rankName(rk) }), T().rankSub); }
+  checkAch();
   if (S.done >= S.nextLevelAt) levelUp();
 }
 
 function hurt(kind, t) {
-  S.rep--; S.streak = 0;
+  S.rep--; S.streak = 0; S.hurtCount++;
+  S.trail.push('r');
   log(fmt(T().log[kind], { t: t ? taskName(t) : '' }));
   document.body.classList.remove('hurt'); void document.body.offsetWidth; document.body.classList.add('hurt');
+  const app = $('#app'); app.classList.remove('shake'); void app.offsetWidth; app.classList.add('shake');
   floatAt($('#hRep'), '−❤️', true);
+  sfx.hurt(); buzz([60, 40, 60]);
   if (S.rep <= 0) gameOver();
 }
 
 function levelUp() {
   S.level++;
+  S.prevLevelAt = S.done;
   S.nextLevelAt = S.done + 6 + S.level * 2;
   if (S.level === 3) log(T().log.newType);
+  sfx.level();
+  checkAch();
   showUpgrades(upgradeOptions());
 }
 
@@ -424,8 +606,10 @@ function applyUpgrade(u) {
   if (u.k === 'heal') S.rep = Math.min(3, S.rep + 1);
   if (u.k === 'qa') { S.bugMul *= 0.5; S.qa = true; }
   S.dirty = true;
+  sfx.assign();
   hideOverlay();
   S.paused = false;
+  checkAch();
 }
 
 function update(dt) {
@@ -433,13 +617,16 @@ function update(dt) {
   S.spawnIn -= dt;
   if (S.spawnIn <= 0) {
     spawnTask();
-    S.spawnIn = Math.max(1.05, 4.3 - S.level * 0.32) * rnd(0.7, 1.3);
+    S.spawnIn = Math.max(1.05, 4.3 - S.level * 0.32) * rnd(0.7, 1.3, R.deal);
+    if (S.over) return;
   }
   for (const p of S.pending.filter(p => p.at <= S.t)) {
     S.pending = S.pending.filter(x => x !== p);
+    S.bugs++;
     spawnTask({ type: p.type, name: p.name, bug: true, size: 1, patience: 14 });
     log(fmt(T().log.bug, { t: T().tasks[p.type][p.name % 8] }));
     if (S.over) return;
+    sfx.deny();
   }
   for (const t of [...S.tasks]) {
     t.left -= dt;
@@ -458,12 +645,33 @@ function update(dt) {
   }
 }
 
-/* ---------- Rendering ---------- */
-let lastLog = '';
-function log(msg) {
-  lastLog = msg;
-  $('#log').innerHTML = `<span>${esc(msg)}</span>`;
+/* ---------- Achievements ---------- */
+function unlock(id) {
+  if (P.ach.includes(id)) return;
+  P.ach.push(id); save();
+  const a = ACH.find(x => x[0] === id);
+  const es = lang === 'es';
+  setTimeout(() => { toast(a[1], T().achToast, es ? a[2] : a[3]); sfx.ach(); }, 150);
 }
+function checkAch() {
+  if (!S) return;
+  if (S.done >= 1) unlock('first');
+  if (S.streak >= 10) unlock('streak10');
+  if (S.streak >= 25) unlock('streak25');
+  if (S.level >= 5) unlock('level5');
+  if (S.level >= 8) unlock('level8');
+  if (S.score >= 1000) unlock('s1000');
+  if (S.score >= 3000) unlock('s3000');
+  if (S.agents.length >= 6) unlock('team');
+  if (S.agents.some(a => a.skills.length >= 2)) unlock('poly');
+  if (S.level >= 4 && S.bugs === 0) unlock('clean');
+  if (S.level >= 5 && S.hurtCount === 0) unlock('flawless');
+  if (rankOf(S.score) === RANKS.length - 1) unlock('master');
+}
+
+/* ---------- Juice ---------- */
+let lastLog = '';
+function log(msg) { lastLog = msg; $('#log').innerHTML = `<span>${esc(msg)}</span>`; }
 
 function floatAt(el, text, bad) {
   if (!el) return;
@@ -476,17 +684,49 @@ function floatAt(el, text, bad) {
   document.body.appendChild(f);
   setTimeout(() => f.remove(), 1000);
 }
+function burst(el, color, n) {
+  if (!el || reduced) return;
+  const r = el.getBoundingClientRect();
+  const cx = r.left + 32, cy = r.top + 30;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('i');
+    p.className = 'spark';
+    const ang = Math.random() * Math.PI * 2, d = 30 + Math.random() * 50;
+    p.style.left = cx + 'px'; p.style.top = cy + 'px';
+    p.style.background = i % 3 ? color : '#fff';
+    p.style.setProperty('--dx', Math.cos(ang) * d + 'px');
+    p.style.setProperty('--dy', Math.sin(ang) * d - 20 + 'px');
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 750);
+  }
+}
+function comboPop(text) {
+  const c = document.createElement('div');
+  c.className = 'combo'; c.textContent = text;
+  document.body.appendChild(c);
+  setTimeout(() => c.remove(), 1000);
+}
+function toast(icon, title, sub) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `<span class="ti">${icon}</span><span><b>${esc(title)}</b><small>${esc(sub || '')}</small></span>`;
+  $('#toasts').appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+function bump(sel) { const e = $(sel); if (!e) return; e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); }
 
+/* ---------- Rendering ---------- */
+// Keyed rendering: each card keeps its DOM node, so taps never land on a node that was just replaced.
+const taskEls = new Map(), agentEls = new Map();
 function renderStatic() {
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-t]').forEach(el => { el.textContent = T()[el.dataset.t]; });
   $('#langBtn').textContent = lang === 'es' ? 'EN' : 'ES';
+  $('#soundBtn').textContent = P.sound ? '🔊' : '🔇';
   S.dirty = true;
   if (overlayView) overlayView();
 }
 
-// Keyed rendering: each card keeps its DOM node, so taps never land on a node that was just replaced.
-const taskEls = new Map(), agentEls = new Map();
 function renderLists() {
   const sel = S.tasks.find(t => t.id === S.selected);
   const box = $('#tasks');
@@ -497,6 +737,8 @@ function renderLists() {
     if (!empty) { empty = document.createElement('div'); empty.className = 'empty'; box.appendChild(empty); }
     empty.textContent = T().empty;
   } else if (empty) empty.remove();
+  // First-run hint: pulse the first task until the player makes their first assignment.
+  const hintId = S.running && P.games === 0 && S.done === 0 && !S.selected && !S.agents.some(a => a.task) ? S.tasks[0]?.id : null;
   for (const t of S.tasks) {
     let el = taskEls.get(t.id);
     if (!el) {
@@ -510,6 +752,7 @@ function renderLists() {
       taskEls.set(t.id, el);
     }
     el.classList.toggle('sel', t.id === S.selected);
+    el.classList.toggle('hint', t.id === hintId);
     el.querySelector('.tn').textContent = taskName(t);
     el.querySelector('.ty').textContent = `${TYPES[t.type].icon} ${typeName(t.type)}`;
   }
@@ -530,11 +773,15 @@ function renderLists() {
     el.querySelector('.kbd').textContent = i + 1;
     el.querySelector('.sk').innerHTML = a.skills.map(s => `<span class="chip" style="--c:${TYPES[s].c}">${TYPES[s].icon} ${typeName(s)}</span>`).join('');
     el.querySelector('.st').textContent = a.task ? fmt(T().working, { t: taskName(a.task) }) : T().idle;
+    el.classList.toggle('busy', !!a.task);
     el.classList.toggle('nope', !!sel && !!a.task);
     el.classList.toggle('match', !!sel && !a.task && isSpec(a, sel));
     el.classList.toggle('weak', !!sel && !a.task && !isSpec(a, sel));
   });
   $('#tip').innerHTML = sel ? T().tipSel : T().tipIdle;
+  const tag = $('#modeTag');
+  tag.hidden = !S.daily;
+  tag.textContent = fmt(T().dailyTag, { n: S.dayN });
 }
 function resetBoard() {
   taskEls.clear(); agentEls.clear();
@@ -554,8 +801,13 @@ function renderFrame() {
     const el = agentEls.get(a.id);
     if (el) el._bar.style.width = a.task ? Math.min(100, a.progress / a.work * 100).toFixed(1) + '%' : '0';
   }
-  $('#hScore').textContent = S.score;
-  $('#hStreak').textContent = '×' + (1 + Math.min(S.streak, 10) * 0.1).toFixed(1);
+  $('#hScore').textContent = nf(S.score);
+  $('#hStreak').textContent = '×' + (1 + Math.min(S.streak, 10) * 0.1).toFixed(1) + (S.streak >= 5 ? ' 🔥' : '');
+  $('#sStreak').classList.toggle('hot', S.streak >= 5);
+  // Progress bar under the score: how close you are to your own record ("ghost" target).
+  const goal = S.startBest > 0 ? Math.min(1, S.score / S.startBest) : 0;
+  $('#hGoal').style.width = (goal * 100).toFixed(1) + '%';
+  $('#sScore').classList.toggle('beaten', S.startBest > 0 && S.score > S.startBest);
   $('#hLevel').textContent = S.level;
   $('#hRep').textContent = '❤️'.repeat(Math.max(0, S.rep)) + '🖤'.repeat(Math.max(0, 3 - S.rep));
   const slots = $('#slots');
@@ -573,16 +825,35 @@ function showOverlay(view) {
 }
 function hideOverlay() { overlayView = null; $('#overlay').hidden = true; $('#card').innerHTML = ''; }
 
+function rankBlock(score) {
+  const L = T(), i = rankOf(score), next = RANKS[i + 1];
+  const pct = next ? (score - RANKS[i][0]) / (next[0] - RANKS[i][0]) * 100 : 100;
+  return `<div class="rank"><span class="ri">${RANKS[i][1]}</span><span style="flex:1"><small>${L.rankTitle}</small><b class="rn">${rankName(i)}</b>
+    <small>${next ? fmt(L.nearRank, { n: nf(next[0] - score), r: rankName(i + 1) }).replace(/^🎯 /, '') : L.topRank}</small>
+    <div class="rb"><i style="width:${pct.toFixed(0)}%"></i></div></span></div>`;
+}
+
 function startView() {
-  const L = T();
+  const L = T(), n = dayNum(), today = P.daily[dayKey()];
+  const streakOn = P.dstreak > 0 && (P.dlast === dayKey() || P.dlast === dayKey(new Date(Date.now() - 864e5)));
   $('#card').innerHTML = `
     <div class="big">🎼</div>
     <h2>Orquesta</h2>
     <p>${L.tagline}</p>
     <ol>${L.how.map(h => `<li>${h}</li>`).join('')}</ol>
-    <div class="actions"><button class="btn primary" data-act="start">${L.start} ▶</button>
-    <button class="btn" data-act="lang">${lang === 'es' ? '🇬🇧 English' : '🇪🇸 Español'}</button>
-    ${S.best ? `<span class="tip" style="align-self:center">${L.rBest}: <b>${S.best}</b></span>` : ''}</div>`;
+    ${P.best ? `<div class="meta">
+      <span>${fmt(L.bestL, { s: nf(P.best) })}</span>
+      <span>${fmt(L.rankNow, { r: RANKS[rankOf(P.best)][1] + ' ' + rankName(rankOf(P.best)) })}</span>
+      <span>${fmt(L.achCount, { n: P.ach.length, t: ACH.length })}</span>
+      ${streakOn ? `<span>${fmt(L.dStreak, { n: P.dstreak })}</span>` : ''}
+    </div>` : ''}
+    <div class="actions">
+      <button class="btn daily" data-act="daily">📅 ${fmt(L.daily, { n })}</button>
+      <button class="btn primary" data-act="start">${L.free} ▶</button>
+      <button class="btn" data-act="lang">${lang === 'es' ? '🇬🇧 English' : '🇪🇸 Español'}</button>
+    </div>
+    <p class="kb" style="margin:8px 0 0">${L.dailyInfo}${today ? ' · ' + fmt(L.dailyDone, { s: nf(today) }) : ''}</p>
+    ${P.ach.length ? `<div class="achs" style="margin-top:12px">${ACH.map(a => `<span class="${P.ach.includes(a[0]) ? '' : 'off'}" title="${esc(lang === 'es' ? a[2] + ': ' + a[4] : a[3] + ': ' + a[5])}">${a[1]}</span>`).join('')}</div>` : ''}`;
 }
 function pauseView() {
   const L = T();
@@ -602,54 +873,99 @@ function upgradesView() {
 }
 function showUpgrades(ups) { currentUps = ups; S.paused = true; S.selected = null; S.dirty = true; showOverlay(upgradesView); }
 
+// Wordle-style result grid: shows *how* the run went without needing to explain the game.
+function trailGrid() {
+  const map = { g: '🟩', y: '🟨', r: '🟥', b: '🐞' };
+  const cells = S.trail.map(c => map[c]);
+  const rows = [];
+  for (let i = 0; i < cells.length; i += 10) rows.push(cells.slice(i, i + 10).join(''));
+  return rows.length > 6 ? rows.slice(0, 3).concat(['…'], rows.slice(-2)).join('\n') : rows.join('\n');
+}
+
 let newBest = false;
-function overView() {
+function nearMiss() {
   const L = T();
-  $('#card').innerHTML = `<div class="big">🎻</div><h2>${L.over}</h2><p>${L.overSub}</p>
-    ${newBest ? `<span class="badge">${L.newBest}</span>` : ''}
+  if (!newBest && S.startBest > 0 && S.startBest - S.score <= Math.max(60, S.startBest * 0.15))
+    return fmt(L.nearBest, { n: nf(S.startBest - S.score + 1) });
+  const left = S.nextLevelAt - S.done;
+  if (left <= 3) return fmt(L.nearLevel, { n: left, u: left === 1 ? L.taskU : L.tasksU, l: S.level + 1 });
+  return ''; // closeness to the next rank is already shown in the rank block
+}
+function overView() {
+  const L = T(), near = nearMiss();
+  $('#card').innerHTML = `<div class="big">🎻</div><h2>${L.over}</h2><p style="margin-bottom:10px">${L.overSub}${S.daily ? ' · ' + fmt(L.dailyTag, { n: S.dayN }) : ''}</p>
+    ${newBest ? `<p style="margin:0 0 10px"><span class="badge">${L.newBest}</span></p>` : ''}
+    ${near ? `<div class="near">${near}</div>` : ''}
     <div class="results">
-      <div><b>${S.score}</b><span>${L.score}</span></div>
+      <div><b>${nf(S.score)}</b><span>${L.score}</span></div>
       <div><b>${S.done}</b><span>${L.rDone}</span></div>
       <div><b>${S.level}</b><span>${L.rLevel}</span></div>
     </div>
-    <p style="margin-top:0">${L.rBest}: <b style="color:var(--text)">${S.best}</b></p>
+    ${rankBlock(S.score)}
+    ${S.trail.length ? `<div class="grid">${trailGrid()}</div>` : ''}
     <div class="actions">
       <button class="btn primary" data-act="again">${L.again} ↻</button>
       <button class="btn" data-act="share">${L.share} ↗</button>
+      <button class="btn" data-act="menu">${L.menu}</button>
+      <span class="kb keys">Enter ↻</span>
     </div>
     <p id="shareMsg" class="tip" style="min-height:18px;margin:10px 0 0"></p>`;
 }
 function gameOver() {
   S.over = true; S.running = false;
-  newBest = S.score > S.best;
-  if (newBest) { S.best = S.score; store.set('orq-best', S.score); }
+  P.games++;
+  if (S.daily) {
+    const k = dayKey(), y = dayKey(new Date(Date.now() - 864e5));
+    newBest = S.score > (P.daily[k] || 0);
+    P.daily[k] = Math.max(P.daily[k] || 0, S.score);
+    if (P.dlast !== k) { P.dstreak = P.dlast === y ? P.dstreak + 1 : 1; P.dlast = k; }
+    // keep only the last 30 days of daily scores
+    Object.keys(P.daily).sort().slice(0, -30).forEach(d => delete P.daily[d]);
+    unlock('daily');
+    if (P.dstreak >= 3) unlock('days3');
+  } else newBest = S.score > P.best && S.score > 0;
+  if (S.score > P.best) P.best = S.score;
+  save();
+  sfx.over();
   showOverlay(overView);
 }
 
 async function share() {
-  const text = fmt(T().shareText, { d: S.done, s: S.score });
-  const url = location.href.split('#')[0];
+  const L = T();
+  const head = S.daily ? fmt(L.shareDaily, { n: S.dayN, s: nf(S.score), l: S.level })
+                       : fmt(L.shareFree, { s: nf(S.score), l: S.level, r: RANKS[rankOf(S.score)][1] + ' ' + rankName(rankOf(S.score)) });
+  const url = location.href.split('#')[0].split('?')[0];
+  const text = `${head}\n${trailGrid()}\n${L.shareTail}`;
   try {
-    if (navigator.share) { await navigator.share({ title: 'Orquesta', text, url }); return; }
-    await navigator.clipboard.writeText(text + ' ' + url);
-    $('#shareMsg').textContent = T().copied;
-  } catch (e) { /* cancelled */ }
+    if (navigator.share && matchMedia('(pointer:coarse)').matches) { await navigator.share({ title: 'Orquesta', text, url }); return; }
+    await navigator.clipboard.writeText(text + '\n' + url);
+    $('#shareMsg').textContent = L.copied;
+  } catch (e) { /* cancelled or blocked */ }
 }
 
-function startGame() {
-  const best = S ? S.best : 0;
+function startGame(daily) {
   resetBoard();
-  newGame();
-  S.best = Math.max(best, S.best);
+  newGame(daily);
   S.running = true;
   hideOverlay();
-  log(T().log.start);
+  log(daily ? fmt(T().log.startDaily, { n: S.dayN }) : T().log.start);
+  sfx.assign();
 }
 function togglePause() {
   if (!S.running || S.over) return;
   if (overlayView && overlayView !== pauseView) return;
   S.paused = !S.paused;
   S.paused ? showOverlay(pauseView) : hideOverlay();
+}
+function toggleLang() {
+  lang = lang === 'es' ? 'en' : 'es';
+  P.lang = lang; save();
+  renderStatic();
+}
+function toggleSound() {
+  P.sound = !P.sound; save();
+  $('#soundBtn').textContent = P.sound ? '🔊' : '🔇';
+  if (P.sound) sfx.select();
 }
 
 /* ---------- Input ---------- */
@@ -658,33 +974,35 @@ $('#tasks').addEventListener('click', e => {
   if (!el || !S.running || S.paused) return;
   S.selected = S.selected === el.dataset.tId ? null : el.dataset.tId;
   S.dirty = true;
+  sfx.select();
 });
 $('#agents').addEventListener('click', e => {
   const el = e.target.closest('.agent');
   if (!el || !S.running || S.paused) return;
   if (S.selected) assign(S.selected, el.dataset.a);
-  else log(T().log.select);
+  else { log(T().log.select); sfx.deny(); }
 });
 $('#card').addEventListener('click', e => {
   const up = e.target.closest('[data-up]');
   if (up) return applyUpgrade(currentUps[+up.dataset.up]);
   const act = e.target.closest('[data-act]')?.dataset.act;
-  if (act === 'start' || act === 'again') startGame();
+  if (act === 'start') startGame(false);
+  if (act === 'daily') startGame(true);
+  if (act === 'again') startGame(S.daily);
+  if (act === 'menu') { resetBoard(); newGame(false); S.dirty = true; showOverlay(startView); }
   if (act === 'resume') togglePause();
   if (act === 'share') share();
   if (act === 'lang') toggleLang();
 });
-function toggleLang() {
-  lang = lang === 'es' ? 'en' : 'es';
-  store.set('orq-lang', lang);
-  renderStatic();
-}
 $('#pauseBtn').addEventListener('click', togglePause);
 $('#langBtn').addEventListener('click', toggleLang);
+$('#soundBtn').addEventListener('click', toggleSound);
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const n = parseInt(e.key, 10);
   if (overlayView === upgradesView && n >= 1 && n <= currentUps.length) return applyUpgrade(currentUps[n - 1]);
+  if (overlayView === overView && (e.key === 'Enter' || e.key === 'r' || e.key === 'R')) { e.preventDefault(); return startGame(S.daily); }
+  if (e.key === 'm' || e.key === 'M') return toggleSound();
   if (e.key === 'p' || e.key === 'P') return togglePause();
   if (!S.running || S.paused) return;
   if (e.key === 'Escape') { S.selected = null; S.dirty = true; return; }
@@ -693,7 +1011,7 @@ document.addEventListener('keydown', e => {
       // No task picked: auto-pick the most urgent one this agent specialises in.
       const a = S.agents[n - 1];
       const best = S.tasks.filter(t => isSpec(a, t)).sort((x, y) => x.left - y.left)[0];
-      if (best) S.selected = best.id; else return log(T().log.select);
+      if (best) S.selected = best.id; else { sfx.deny(); return log(T().log.select); }
     }
     assign(S.selected, S.agents[n - 1].id);
   }
@@ -713,7 +1031,7 @@ function frame(ts) {
   requestAnimationFrame(frame);
 }
 
-newGame();
+newGame(false);
 renderStatic();
 showOverlay(startView);
 requestAnimationFrame(frame);
