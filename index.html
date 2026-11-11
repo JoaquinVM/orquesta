@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Orquesta · Agent dispatcher</title>
+<meta name="description" content="Dirige un equipo de agentes de IA: reparte cada tarea al agente adecuado antes de que se acumulen. Juego de navegador gratuito. / Lead a team of AI agents in this free browser game.">
+<meta property="og:title" content="Orquesta: dirige un equipo de agentes de IA">
+<meta property="og:description" content="Llegan tareas sin parar. Dale cada una al agente adecuado antes de que se acumulen. ¿Cuántos puntos haces?">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0b1020">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎼</text></svg>">
+<style>
+:root{
+  --bg:#0b1020;--panel:#121a2f;--panel2:#18223d;--line:#26314f;
+  --text:#e8ecf8;--muted:#8d97b5;--accent:#8b5cf6;--accent2:#22d3ee;
+  --good:#4ade80;--warn:#fbbf24;--bad:#f87171;
+  --code:#60a5fa;--design:#f472b6;--data:#facc15;--test:#4ade80;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:
+    radial-gradient(1200px 600px at 15% -10%,#22174a 0,transparent 60%),
+    radial-gradient(900px 500px at 110% 0%,#0d2c3d 0,transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--text);
+  font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit;color:inherit}
+#app{max-width:1120px;margin:0 auto;padding:14px 16px 18px;min-height:100vh;display:flex;flex-direction:column;gap:12px}
+
+/* Header */
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .logo{font-size:26px}
+.brand h1{margin:0;font-size:20px;font-weight:800;letter-spacing:.2px}
+.brand p{margin:0;font-size:12px;color:var(--muted)}
+.hud{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 10px;min-width:62px}
+.stat b{display:block;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.stat.streak b{color:var(--accent2)}
+.ctrl{display:flex;gap:6px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600;transition:transform .1s,background .2s}
+.btn:hover{background:#202c4d}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(135deg,var(--accent),#6d28d9);border-color:transparent}
+.btn.primary:hover{filter:brightness(1.1)}
+
+/* Board */
+main{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;flex:1;align-items:start}
+.panel{background:rgba(18,26,47,.82);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.panel h2{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.slots{font-variant-numeric:tabular-nums;padding:2px 8px;border-radius:999px;background:var(--panel2)}
+.slots.full{background:rgba(248,113,113,.18);color:var(--bad)}
+#tasks{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-content:start;min-height:230px}
+.empty{grid-column:1/-1;color:var(--muted);text-align:center;padding:60px 0;font-size:14px}
+
+.task{position:relative;text-align:left;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:12px;padding:9px 10px 13px;cursor:pointer;overflow:hidden;animation:pop .25s ease-out;transition:transform .15s,box-shadow .15s}
+.task:hover{transform:translateY(-1px)}
+.task.sel{outline:2px solid var(--accent2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(34,211,238,.25)}
+.task .tn{font-weight:650;font-size:14px;line-height:1.25}
+.task .tm{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-top:3px}
+.task .size{letter-spacing:1px;color:var(--c)}
+.task .pat{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.06)}
+.task .pat i{display:block;height:100%;background:var(--good)}
+.task.warn .pat i{background:var(--warn)}
+.task.urgent .pat i{background:var(--bad)}
+.task.urgent{animation:pulse 1s ease-in-out infinite}
+.task.bug{background:linear-gradient(135deg,rgba(248,113,113,.14),var(--panel2) 60%)}
+
+#agents{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.agent{position:relative;text-align:left;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:10px;cursor:pointer;transition:opacity .2s,box-shadow .2s,transform .15s;animation:pop .3s ease-out}
+.agent .av{font-size:26px;width:44px;height:44px;display:grid;place-items:center;background:var(--panel);border-radius:12px;grid-row:span 2}
+.agent .an{font-weight:700}
+.agent .sk{display:flex;gap:4px;flex-wrap:wrap}
+.chip{font-size:11px;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 35%,transparent)}
+.agent .st{grid-column:1/-1;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.agent .bar{grid-column:1/-1;height:6px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.agent .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.agent .kbd{position:absolute;top:8px;right:9px;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+.agent.match{box-shadow:0 0 0 2px var(--good),0 0 18px rgba(74,222,128,.25);transform:translateY(-1px)}
+.agent.weak{box-shadow:0 0 0 2px var(--warn)}
+.agent.nope{opacity:.4}
+.agent.shake{animation:shake .3s}
+.tip{font-size:12px;color:var(--muted);line-height:1.5}
+.tip .chip{margin-right:2px}
+
+#log{min-height:22px;font-size:13px;color:var(--muted);text-align:center}
+#log span{animation:fadeIn .3s}
+.foot{display:flex;justify-content:center;gap:14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.foot a{color:var(--muted)}
+
+/* Overlays */
+.overlay{position:fixed;inset:0;background:rgba(5,8,18,.74);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px;z-index:10}
+.overlay[hidden]{display:none}
+.card{max-width:540px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:24px;max-height:calc(100vh - 32px);overflow:auto;animation:pop .25s ease-out;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.card h2{margin:0 0 6px;font-size:26px}
+.card .big{font-size:42px;line-height:1}
+.card p{color:var(--muted);margin:6px 0 14px}
+.card ol{padding-left:20px;margin:0 0 18px;display:grid;gap:8px}
+.card .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.ups{display:grid;gap:10px;margin-top:8px}
+.up{display:flex;gap:12px;align-items:center;text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;transition:transform .12s,border-color .2s}
+.up:hover,.up:focus-visible{border-color:var(--accent);transform:translateY(-1px)}
+.up .i{font-size:26px;width:40px;text-align:center}
+.up b{display:block}
+.up small{color:var(--muted)}
+.up .k{margin-left:auto;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+.results{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
+.results div{background:var(--panel2);border-radius:12px;padding:10px;text-align:center}
+.results b{display:block;font-size:22px}
+.results span{font-size:11px;color:var(--muted)}
+.badge{display:inline-block;background:linear-gradient(135deg,var(--warn),#f97316);color:#1a1205;font-weight:800;border-radius:999px;padding:3px 10px;font-size:12px}
+
+.float{position:fixed;font-weight:800;color:var(--good);pointer-events:none;animation:rise 1s ease-out forwards;z-index:5;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+.float.bad{color:var(--bad)}
+body.hurt::after{content:"";position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 0 3px var(--bad),inset 0 0 90px rgba(248,113,113,.35);animation:fade .6s forwards;z-index:4}
+
+@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+@keyframes pulse{50%{border-color:var(--bad)}}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@keyframes rise{to{transform:translateY(-40px);opacity:0}}
+@keyframes fade{to{opacity:0}}
+@keyframes fadeIn{from{opacity:0}}
+
+@media (max-width:780px){
+  main{grid-template-columns:1fr}
+  .ctrl{order:2;margin-left:auto}
+  .hud{order:3;margin-left:0;width:100%}
+  .stat{flex:1;min-width:0}
+  #tasks{grid-template-columns:repeat(2,minmax(0,1fr));min-height:160px}
+  #agents{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .agent{grid-template-columns:1fr;padding:8px}
+  .agent .av{grid-row:auto;width:36px;height:36px;font-size:22px}
+  .agent .kbd{display:none}
+  .card{padding:18px}
+  .results b{font-size:18px}
+}
+@media (prefers-reduced-motion:reduce){*,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <span class="logo">🎼</span>
+      <div><h1>Orquesta</h1><p data-t="sub"></p></div>
+    </div>
+    <div class="hud">
+      <div class="stat"><span data-t="score"></span><b id="hScore">0</b></div>
+      <div class="stat streak"><span data-t="streak"></span><b id="hStreak">×1.0</b></div>
+      <div class="stat"><span data-t="level"></span><b id="hLevel">1</b></div>
+      <div class="stat"><span data-t="rep"></span><b id="hRep">❤️❤️❤️</b></div>
+    </div>
+    <div class="ctrl">
+      <button class="btn" id="langBtn" aria-label="Language">EN</button>
+      <button class="btn" id="pauseBtn" aria-label="Pause">⏸</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2><span data-t="inbox"></span><span class="slots" id="slots">0/7</span></h2>
+      <div id="tasks"></div>
+    </section>
+    <section class="panel">
+      <h2><span data-t="team"></span></h2>
+      <div id="agents"></div>
+      <div class="tip" id="tip"></div>
+    </section>
+  </main>
+
+  <div id="log"></div>
+  <div class="foot">
+    <span data-t="keys"></span>
+    <a href="https://github.com/JoaquinVM/orquesta" target="_blank" rel="noopener" data-t="source"></a>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden><div class="card" id="card" role="dialog" aria-modal="true"></div></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Content ---------- */
+const TYPES = {
+  code:   { icon: '💻', c: 'var(--code)' },
+  design: { icon: '🎨', c: 'var(--design)' },
+  test:   { icon: '🧪', c: 'var(--test)' },
+  data:   { icon: '📊', c: 'var(--data)' },
+};
+const AGENT_POOL = [['Nova','🤖'],['Pixel','👾'],['Probe','🛰️'],['Quant','🧠'],['Echo','🦉'],['Atlas','🦾'],['Lumen','✨'],['Byte','🐙']];
+const MAX_AGENTS = 6;
+
+const STR = {
+  es: {
+    sub: 'Dirige un equipo de agentes de IA',
+    score: 'Puntos', streak: 'Racha', level: 'Nivel', rep: 'Reputación',
+    inbox: 'Bandeja de tareas', team: 'Tu equipo', empty: 'Bandeja vacía ✨ Disfruta mientras dure…',
+    idle: 'Libre', working: 'Trabajando en «{t}»',
+    types: { code: 'Código', design: 'Diseño', test: 'QA', data: 'Datos' },
+    tasks: {
+      code: ['Login con Google','API de pagos','Migrar la base de datos','Arreglar el carrito','Buscador','Refactor del checkout','Notificaciones push','Modo offline'],
+      design: ['Logo nuevo','Onboarding','Modo oscuro','Iconos de la app','Landing de verano','Rediseño del perfil','Ilustraciones','Guía de estilo'],
+      test: ['Tests del login','Prueba de carga','QA en móvil','Tests de regresión','Accesibilidad','Revisar el pago','Test end-to-end','Auditoría de seguridad'],
+      data: ['Informe de ventas','Dashboard de KPIs','Limpiar el CSV','Predicción de demanda','Análisis de abandono','Test A/B','Segmentar clientes','Métricas de retención'],
+    },
+    bug: '🐞 Bug: ',
+    tipIdle: 'Toca una tarea y después un agente. Los especialistas (<span class="chip" style="--c:var(--good)">verde</span>) son rápidos y casi no dejan bugs.',
+    tipSel: 'Ahora toca un agente. <span class="chip" style="--c:var(--good)">verde</span> = especialista · <span class="chip" style="--c:var(--warn)">amarillo</span> = lento y con riesgo de bug.',
+    keys: 'Teclas: 1–6 asignan · Esc deselecciona · P pausa',
+    source: 'Código en GitHub',
+    tagline: 'Diriges un equipo de agentes de IA y las tareas no dejan de llegar. Tu trabajo: dar cada una al agente adecuado antes de que se acumulen.',
+    how: [
+      '<b>Toca una tarea y luego un agente</b> para asignársela (o pulsa 1–6).',
+      'Los <b>especialistas</b> trabajan rápido y casi sin bugs. Los demás tardan más y a veces dejan <b>bugs 🐞</b> que vuelven a la bandeja.',
+      'Si una tarea <b>espera demasiado</b> o la <b>bandeja se llena</b>, pierdes ❤️. Con 0, se acaba la partida.',
+      'Cada nivel eliges una <b>mejora</b>: contratar, formar al equipo o automatizar.',
+    ],
+    start: 'Empezar', again: 'Jugar otra vez', share: 'Compartir resultado', copied: '¡Copiado! Pégalo donde quieras.',
+    paused: 'Pausa', pausedSub: 'El equipo se ha ido a por café ☕', resume: 'Seguir',
+    levelUp: '¡Nivel {n}!', pick: 'Elige una mejora para tu equipo:',
+    up: {
+      hire: ['Contratar a {name}', 'Nuevo agente especialista en {type}.'],
+      train: ['Formar a {name}', 'Aprende {type}: ahí también será rápido y sin bugs.'],
+      boost: ['Mejores herramientas', 'Todo el equipo trabaja un 20 % más rápido.'],
+      cap: ['Bandeja más grande', '+2 huecos antes de que se desborde.'],
+      heal: ['Recuperar reputación', 'Recuperas un ❤️.'],
+      qa: ['Revisión automática', 'A partir de ahora, la mitad de bugs.'],
+    },
+    over: 'Fin de la partida', overSub: 'Tu reputación llegó a cero. Ningún equipo aguanta para siempre.',
+    rDone: 'tareas', rLevel: 'nivel', rBest: 'récord', newBest: '🏆 ¡Nuevo récord!',
+    log: {
+      start: 'Primer día en la oficina. Empiezan a llegar tareas…',
+      done: '{a} terminó «{t}» (+{p})',
+      bug: '🐞 Ha aparecido un bug en «{t}»',
+      missed: '⌛ «{t}» esperó demasiado (−❤️)',
+      overflow: '📥 Bandeja llena: se perdió una tarea (−❤️)',
+      busy: '{a} está ocupado',
+      select: 'Primero elige una tarea de la bandeja',
+      newType: '📊 ¡Empiezan a llegar tareas de Datos!',
+    },
+    shareText: 'Coordiné {d} tareas y saqué {s} puntos dirigiendo un equipo de agentes de IA en Orquesta 🎼 ¿Me superas?',
+  },
+  en: {
+    sub: 'Lead a team of AI agents',
+    score: 'Score', streak: 'Streak', level: 'Level', rep: 'Reputation',
+    inbox: 'Task inbox', team: 'Your team', empty: 'Inbox zero ✨ Enjoy it while it lasts…',
+    idle: 'Idle', working: 'Working on “{t}”',
+    types: { code: 'Code', design: 'Design', test: 'QA', data: 'Data' },
+    tasks: {
+      code: ['Google sign-in','Payments API','Database migration','Fix the cart','Search','Checkout refactor','Push notifications','Offline mode'],
+      design: ['New logo','Onboarding','Dark mode','App icons','Summer landing page','Profile redesign','Illustrations','Style guide'],
+      test: ['Login tests','Load test','Mobile QA','Regression tests','Accessibility','Payment review','End-to-end test','Security audit'],
+      data: ['Sales report','KPI dashboard','Clean the CSV','Demand forecast','Churn analysis','A/B test','Customer segments','Retention metrics'],
+    },
+    bug: '🐞 Bug: ',
+    tipIdle: 'Tap a task, then an agent. Specialists (<span class="chip" style="--c:var(--good)">green</span>) are fast and rarely ship bugs.',
+    tipSel: 'Now tap an agent. <span class="chip" style="--c:var(--good)">green</span> = specialist · <span class="chip" style="--c:var(--warn)">yellow</span> = slow and may ship a bug.',
+    keys: 'Keys: 1–6 assign · Esc deselects · P pauses',
+    source: 'Source on GitHub',
+    tagline: 'You lead a team of AI agents and tasks keep pouring in. Your job: hand each one to the right agent before they pile up.',
+    how: [
+      '<b>Tap a task, then an agent</b> to assign it (or press 1–6).',
+      '<b>Specialists</b> work fast and almost bug-free. Everyone else is slower and sometimes ships <b>bugs 🐞</b> that come back to the inbox.',
+      'If a task <b>waits too long</b> or the <b>inbox overflows</b>, you lose ❤️. At 0, it’s game over.',
+      'Every level you pick an <b>upgrade</b>: hire, train or automate.',
+    ],
+    start: 'Start', again: 'Play again', share: 'Share result', copied: 'Copied! Paste it anywhere.',
+    paused: 'Paused', pausedSub: 'The team went for coffee ☕', resume: 'Resume',
+    levelUp: 'Level {n}!', pick: 'Pick an upgrade for your team:',
+    up: {
+      hire: ['Hire {name}', 'New agent specialised in {type}.'],
+      train: ['Train {name}', 'Learns {type}: fast and bug-free there too.'],
+      boost: ['Better tools', 'The whole team works 20% faster.'],
+      cap: ['Bigger inbox', '+2 slots before it overflows.'],
+      heal: ['Win back trust', 'Recover one ❤️.'],
+      qa: ['Automated review', 'Half as many bugs from now on.'],
+    },
+    over: 'Game over', overSub: 'Your reputation hit zero. No team lasts forever.',
+    rDone: 'tasks', rLevel: 'level', rBest: 'best', newBest: '🏆 New high score!',
+    log: {
+      start: 'First day at the office. Tasks start coming in…',
+      done: '{a} finished “{t}” (+{p})',
+      bug: '🐞 A bug showed up in “{t}”',
+      missed: '⌛ “{t}” waited too long (−❤️)',
+      overflow: '📥 Inbox full: a task was lost (−❤️)',
+      busy: '{a} is busy',
+      select: 'Pick a task from the inbox first',
+      newType: '📊 Data tasks are coming in!',
+    },
+    shareText: 'I handled {d} tasks and scored {s} points leading a team of AI agents in Orquesta 🎼 Can you beat me?',
+  },
+};
+
+/* ---------- Helpers ---------- */
+const $ = s => document.querySelector(s);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? '');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+
+let lang = store.get('orq-lang') || ((navigator.language || '').toLowerCase().startsWith('es') ? 'es' : 'en');
+const T = () => STR[lang];
+const taskName = t => (t.bug ? T().bug : '') + T().tasks[t.type][t.name % T().tasks[t.type].length];
+const typeName = ty => T().types[ty];
+
+/* ---------- State ---------- */
+let uid = 1, S, overlayView = null;
+
+function mkAgent(type) {
+  const used = new Set(S.agents.map(a => a.name));
+  const [name, avatar] = AGENT_POOL.find(([n]) => !used.has(n)) || ['Agent', '🤖'];
+  return { id: 'a' + uid++, name, avatar, skills: [type], task: null, progress: 0, work: 1 };
+}
+function nextAgentName() {
+  const used = new Set(S.agents.map(a => a.name));
+  return (AGENT_POOL.find(([n]) => !used.has(n)) || ['Agent'])[0];
+}
+function newGame() {
+  S = {
+    t: 0, score: 0, streak: 0, rep: 3, level: 1, done: 0, nextLevelAt: 6,
+    cap: 7, spawnIn: 0.6, speed: 1, bugMul: 1, qa: false,
+    tasks: [], agents: [], pending: [], selected: null,
+    running: false, paused: false, over: false, dirty: true,
+    best: +store.get('orq-best') || 0,
+  };
+  ['code', 'design', 'test'].forEach(t => S.agents.push(mkAgent(t)));
+}
+const activeTypes = () => S.level >= 3 ? ['code', 'design', 'test', 'data'] : ['code', 'design', 'test'];
+const isSpec = (a, t) => a.skills.includes(t.type);
+
+/* ---------- Game logic ---------- */
+function spawnTask(o = {}) {
+  if (S.tasks.length >= S.cap) { hurt('overflow'); return; }
+  const type = o.type || pick(activeTypes());
+  const big = Math.min(0.3, 0.04 + S.level * 0.03);
+  const r = Math.random();
+  const size = o.size || (r < big ? 3 : r < big + 0.32 ? 2 : 1);
+  const patience = o.patience || Math.max(9, 18 + size * 3 - S.level * 0.8);
+  S.tasks.push({ id: 't' + uid++, type, size, name: o.name ?? Math.floor(Math.random() * 64), bug: !!o.bug, patience, left: patience });
+  S.dirty = true;
+}
+
+function assign(taskId, agentId) {
+  const t = S.tasks.find(x => x.id === taskId);
+  const a = S.agents.find(x => x.id === agentId);
+  if (!t || !a) return;
+  const el = document.querySelector(`[data-a="${a.id}"]`);
+  if (a.task) { log(fmt(T().log.busy, { a: a.name })); if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); } return; }
+  S.tasks = S.tasks.filter(x => x !== t);
+  a.task = t;
+  a.progress = 0;
+  a.work = (t.bug ? 2.2 : t.size * 3.2) / (S.speed * (isSpec(a, t) ? 1 : 0.45));
+  S.selected = null;
+  S.dirty = true;
+}
+
+function complete(a) {
+  const t = a.task, spec = isSpec(a, t);
+  const mult = 1 + Math.min(S.streak, 10) * 0.1;
+  const pts = Math.round((t.bug ? 5 : t.size * 10) * mult);
+  S.score += pts; S.streak++; S.done++;
+  if (!t.bug && Math.random() < (spec ? 0.04 : 0.38) * S.bugMul) {
+    S.pending.push({ at: S.t + rnd(2.5, 5), type: t.type, name: t.name });
+  }
+  floatAt(document.querySelector(`[data-a="${a.id}"]`), '+' + pts);
+  log(fmt(T().log.done, { a: a.name, t: taskName(t), p: pts }));
+  a.task = null; a.progress = 0;
+  S.dirty = true;
+  if (S.done >= S.nextLevelAt) levelUp();
+}
+
+function hurt(kind, t) {
+  S.rep--; S.streak = 0;
+  log(fmt(T().log[kind], { t: t ? taskName(t) : '' }));
+  document.body.classList.remove('hurt'); void document.body.offsetWidth; document.body.classList.add('hurt');
+  floatAt($('#hRep'), '−❤️', true);
+  if (S.rep <= 0) gameOver();
+}
+
+function levelUp() {
+  S.level++;
+  S.nextLevelAt = S.done + 6 + S.level * 2;
+  if (S.level === 3) log(T().log.newType);
+  showUpgrades(upgradeOptions());
+}
+
+function upgradeOptions() {
+  const covered = new Set(S.agents.flatMap(a => a.skills));
+  const missing = activeTypes().filter(t => !covered.has(t));
+  const lead = [], rest = [];
+  if (S.agents.length < MAX_AGENTS) (missing.length ? lead : rest).push({ k: 'hire', type: missing[0] || pick(activeTypes()) });
+  const trainable = S.agents.filter(a => a.skills.length < 2);
+  if (trainable.length) {
+    const a = pick(trainable);
+    const lacks = activeTypes().filter(t => !a.skills.includes(t));
+    const type = missing.find(t => lacks.includes(t)) || pick(lacks);
+    if (type) rest.push({ k: 'train', agent: a.id, type });
+  }
+  rest.push({ k: 'boost' }, { k: 'cap' });
+  if (S.rep < 3) rest.push({ k: 'heal' });
+  if (!S.qa) rest.push({ k: 'qa' });
+  return lead.concat(shuffle(rest)).slice(0, 3);
+}
+
+function applyUpgrade(u) {
+  if (!u || overlayView !== upgradesView) return;
+  if (u.k === 'hire' && S.agents.length < MAX_AGENTS) S.agents.push(mkAgent(u.type));
+  if (u.k === 'train') { const a = S.agents.find(x => x.id === u.agent); if (a) a.skills.push(u.type); }
+  if (u.k === 'boost') { S.speed *= 1.2; S.agents.forEach(a => { if (a.task) { a.work /= 1.2; a.progress /= 1.2; } }); }
+  if (u.k === 'cap') S.cap += 2;
+  if (u.k === 'heal') S.rep = Math.min(3, S.rep + 1);
+  if (u.k === 'qa') { S.bugMul *= 0.5; S.qa = true; }
+  S.dirty = true;
+  hideOverlay();
+  S.paused = false;
+}
+
+function update(dt) {
+  S.t += dt;
+  S.spawnIn -= dt;
+  if (S.spawnIn <= 0) {
+    spawnTask();
+    S.spawnIn = Math.max(1.05, 4.3 - S.level * 0.32) * rnd(0.7, 1.3);
+  }
+  for (const p of S.pending.filter(p => p.at <= S.t)) {
+    S.pending = S.pending.filter(x => x !== p);
+    spawnTask({ type: p.type, name: p.name, bug: true, size: 1, patience: 14 });
+    log(fmt(T().log.bug, { t: T().tasks[p.type][p.name % 8] }));
+    if (S.over) return;
+  }
+  for (const t of [...S.tasks]) {
+    t.left -= dt;
+    if (t.left <= 0) {
+      S.tasks = S.tasks.filter(x => x !== t);
+      if (S.selected === t.id) S.selected = null;
+      S.dirty = true;
+      hurt('missed', t);
+      if (S.over) return;
+    }
+  }
+  for (const a of S.agents) {
+    if (!a.task) continue;
+    a.progress += dt;
+    if (a.progress >= a.work) { complete(a); if (S.paused) return; }
+  }
+}
+
+/* ---------- Rendering ---------- */
+let lastLog = '';
+function log(msg) {
+  lastLog = msg;
+  $('#log').innerHTML = `<span>${esc(msg)}</span>`;
+}
+
+function floatAt(el, text, bad) {
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  const f = document.createElement('div');
+  f.className = 'float' + (bad ? ' bad' : '');
+  f.textContent = text;
+  f.style.left = (r.left + r.width / 2 - 16) + 'px';
+  f.style.top = (r.top + 4) + 'px';
+  document.body.appendChild(f);
+  setTimeout(() => f.remove(), 1000);
+}
+
+function renderStatic() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-t]').forEach(el => { el.textContent = T()[el.dataset.t]; });
+  $('#langBtn').textContent = lang === 'es' ? 'EN' : 'ES';
+  S.dirty = true;
+  if (overlayView) overlayView();
+}
+
+// Keyed rendering: each card keeps its DOM node, so taps never land on a node that was just replaced.
+const taskEls = new Map(), agentEls = new Map();
+function renderLists() {
+  const sel = S.tasks.find(t => t.id === S.selected);
+  const box = $('#tasks');
+  const ids = new Set(S.tasks.map(t => t.id));
+  for (const [id, el] of taskEls) if (!ids.has(id)) { el.remove(); taskEls.delete(id); }
+  let empty = box.querySelector('.empty');
+  if (!S.tasks.length) {
+    if (!empty) { empty = document.createElement('div'); empty.className = 'empty'; box.appendChild(empty); }
+    empty.textContent = T().empty;
+  } else if (empty) empty.remove();
+  for (const t of S.tasks) {
+    let el = taskEls.get(t.id);
+    if (!el) {
+      el = document.createElement('button');
+      el.className = 'task' + (t.bug ? ' bug' : '');
+      el.dataset.tId = t.id;
+      el.style.setProperty('--c', TYPES[t.type].c);
+      el.innerHTML = `<div class="tn"></div><div class="tm"><span class="ty"></span><span class="size">${'●'.repeat(t.bug ? 1 : t.size)}</span></div><div class="pat"><i></i></div>`;
+      el._bar = el.querySelector('.pat i');
+      box.appendChild(el);
+      taskEls.set(t.id, el);
+    }
+    el.classList.toggle('sel', t.id === S.selected);
+    el.querySelector('.tn').textContent = taskName(t);
+    el.querySelector('.ty').textContent = `${TYPES[t.type].icon} ${typeName(t.type)}`;
+  }
+
+  S.agents.forEach((a, i) => {
+    let el = agentEls.get(a.id);
+    if (!el) {
+      el = document.createElement('button');
+      el.className = 'agent';
+      el.dataset.a = a.id;
+      el.innerHTML = `<span class="kbd"></span><div class="av"></div><div class="an"></div><div class="sk"></div><div class="st"></div><div class="bar"><i></i></div>`;
+      el.querySelector('.av').textContent = a.avatar;
+      el.querySelector('.an').textContent = a.name;
+      el._bar = el.querySelector('.bar i');
+      $('#agents').appendChild(el);
+      agentEls.set(a.id, el);
+    }
+    el.querySelector('.kbd').textContent = i + 1;
+    el.querySelector('.sk').innerHTML = a.skills.map(s => `<span class="chip" style="--c:${TYPES[s].c}">${TYPES[s].icon} ${typeName(s)}</span>`).join('');
+    el.querySelector('.st').textContent = a.task ? fmt(T().working, { t: taskName(a.task) }) : T().idle;
+    el.classList.toggle('nope', !!sel && !!a.task);
+    el.classList.toggle('match', !!sel && !a.task && isSpec(a, sel));
+    el.classList.toggle('weak', !!sel && !a.task && !isSpec(a, sel));
+  });
+  $('#tip').innerHTML = sel ? T().tipSel : T().tipIdle;
+}
+function resetBoard() {
+  taskEls.clear(); agentEls.clear();
+  $('#tasks').innerHTML = ''; $('#agents').innerHTML = '';
+}
+
+function renderFrame() {
+  for (const t of S.tasks) {
+    const el = taskEls.get(t.id);
+    if (!el) continue;
+    const f = Math.max(0, t.left / t.patience);
+    el._bar.style.width = (f * 100).toFixed(1) + '%';
+    el.classList.toggle('warn', f < 0.55 && f >= 0.28);
+    el.classList.toggle('urgent', f < 0.28);
+  }
+  for (const a of S.agents) {
+    const el = agentEls.get(a.id);
+    if (el) el._bar.style.width = a.task ? Math.min(100, a.progress / a.work * 100).toFixed(1) + '%' : '0';
+  }
+  $('#hScore').textContent = S.score;
+  $('#hStreak').textContent = '×' + (1 + Math.min(S.streak, 10) * 0.1).toFixed(1);
+  $('#hLevel').textContent = S.level;
+  $('#hRep').textContent = '❤️'.repeat(Math.max(0, S.rep)) + '🖤'.repeat(Math.max(0, 3 - S.rep));
+  const slots = $('#slots');
+  slots.textContent = `${S.tasks.length}/${S.cap}`;
+  slots.classList.toggle('full', S.tasks.length >= S.cap - 1);
+}
+
+/* ---------- Overlays ---------- */
+function showOverlay(view) {
+  overlayView = view;
+  view();
+  $('#overlay').hidden = false;
+  const btn = $('#card').querySelector('button');
+  if (btn) btn.focus({ preventScroll: true });
+}
+function hideOverlay() { overlayView = null; $('#overlay').hidden = true; $('#card').innerHTML = ''; }
+
+function startView() {
+  const L = T();
+  $('#card').innerHTML = `
+    <div class="big">🎼</div>
+    <h2>Orquesta</h2>
+    <p>${L.tagline}</p>
+    <ol>${L.how.map(h => `<li>${h}</li>`).join('')}</ol>
+    <div class="actions"><button class="btn primary" data-act="start">${L.start} ▶</button>
+    <button class="btn" data-act="lang">${lang === 'es' ? '🇬🇧 English' : '🇪🇸 Español'}</button>
+    ${S.best ? `<span class="tip" style="align-self:center">${L.rBest}: <b>${S.best}</b></span>` : ''}</div>`;
+}
+function pauseView() {
+  const L = T();
+  $('#card').innerHTML = `<div class="big">☕</div><h2>${L.paused}</h2><p>${L.pausedSub}</p>
+    <div class="actions"><button class="btn primary" data-act="resume">${L.resume} ▶</button></div>`;
+}
+let currentUps = [];
+function upgradesView() {
+  const L = T();
+  $('#card').innerHTML = `<div class="big">⭐</div><h2>${fmt(L.levelUp, { n: S.level })}</h2><p>${L.pick}</p>
+    <div class="ups">${currentUps.map((u, i) => {
+      const a = u.agent && S.agents.find(x => x.id === u.agent);
+      const vars = { name: u.k === 'hire' ? nextAgentName() : a ? a.name : '', type: u.type ? `${TYPES[u.type].icon} ${typeName(u.type)}` : '' };
+      const icon = { hire: '🤝', train: '📚', boost: '⚡', cap: '📥', heal: '❤️', qa: '🛡️' }[u.k];
+      return `<button class="up" data-up="${i}"><span class="i">${icon}</span><span><b>${esc(fmt(L.up[u.k][0], vars))}</b><small>${fmt(L.up[u.k][1], vars)}</small></span><span class="k">${i + 1}</span></button>`;
+    }).join('')}</div>`;
+}
+function showUpgrades(ups) { currentUps = ups; S.paused = true; S.selected = null; S.dirty = true; showOverlay(upgradesView); }
+
+let newBest = false;
+function overView() {
+  const L = T();
+  $('#card').innerHTML = `<div class="big">🎻</div><h2>${L.over}</h2><p>${L.overSub}</p>
+    ${newBest ? `<span class="badge">${L.newBest}</span>` : ''}
+    <div class="results">
+      <div><b>${S.score}</b><span>${L.score}</span></div>
+      <div><b>${S.done}</b><span>${L.rDone}</span></div>
+      <div><b>${S.level}</b><span>${L.rLevel}</span></div>
+    </div>
+    <p style="margin-top:0">${L.rBest}: <b style="color:var(--text)">${S.best}</b></p>
+    <div class="actions">
+      <button class="btn primary" data-act="again">${L.again} ↻</button>
+      <button class="btn" data-act="share">${L.share} ↗</button>
+    </div>
+    <p id="shareMsg" class="tip" style="min-height:18px;margin:10px 0 0"></p>`;
+}
+function gameOver() {
+  S.over = true; S.running = false;
+  newBest = S.score > S.best;
+  if (newBest) { S.best = S.score; store.set('orq-best', S.score); }
+  showOverlay(overView);
+}
+
+async function share() {
+  const text = fmt(T().shareText, { d: S.done, s: S.score });
+  const url = location.href.split('#')[0];
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Orquesta', text, url }); return; }
+    await navigator.clipboard.writeText(text + ' ' + url);
+    $('#shareMsg').textContent = T().copied;
+  } catch (e) { /* cancelled */ }
+}
+
+function startGame() {
+  const best = S ? S.best : 0;
+  resetBoard();
+  newGame();
+  S.best = Math.max(best, S.best);
+  S.running = true;
+  hideOverlay();
+  log(T().log.start);
+}
+function togglePause() {
+  if (!S.running || S.over) return;
+  if (overlayView && overlayView !== pauseView) return;
+  S.paused = !S.paused;
+  S.paused ? showOverlay(pauseView) : hideOverlay();
+}
+
+/* ---------- Input ---------- */
+$('#tasks').addEventListener('click', e => {
+  const el = e.target.closest('.task');
+  if (!el || !S.running || S.paused) return;
+  S.selected = S.selected === el.dataset.tId ? null : el.dataset.tId;
+  S.dirty = true;
+});
+$('#agents').addEventListener('click', e => {
+  const el = e.target.closest('.agent');
+  if (!el || !S.running || S.paused) return;
+  if (S.selected) assign(S.selected, el.dataset.a);
+  else log(T().log.select);
+});
+$('#card').addEventListener('click', e => {
+  const up = e.target.closest('[data-up]');
+  if (up) return applyUpgrade(currentUps[+up.dataset.up]);
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'start' || act === 'again') startGame();
+  if (act === 'resume') togglePause();
+  if (act === 'share') share();
+  if (act === 'lang') toggleLang();
+});
+function toggleLang() {
+  lang = lang === 'es' ? 'en' : 'es';
+  store.set('orq-lang', lang);
+  renderStatic();
+}
+$('#pauseBtn').addEventListener('click', togglePause);
+$('#langBtn').addEventListener('click', toggleLang);
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const n = parseInt(e.key, 10);
+  if (overlayView === upgradesView && n >= 1 && n <= currentUps.length) return applyUpgrade(currentUps[n - 1]);
+  if (e.key === 'p' || e.key === 'P') return togglePause();
+  if (!S.running || S.paused) return;
+  if (e.key === 'Escape') { S.selected = null; S.dirty = true; return; }
+  if (n >= 1 && n <= S.agents.length) {
+    if (!S.selected) {
+      // No task picked: auto-pick the most urgent one this agent specialises in.
+      const a = S.agents[n - 1];
+      const best = S.tasks.filter(t => isSpec(a, t)).sort((x, y) => x.left - y.left)[0];
+      if (best) S.selected = best.id; else return log(T().log.select);
+    }
+    assign(S.selected, S.agents[n - 1].id);
+  }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && S.running && !S.paused && !S.over) togglePause();
+});
+
+/* ---------- Loop ---------- */
+let last = 0;
+function frame(ts) {
+  const dt = Math.min(0.1, last ? (ts - last) / 1000 : 0);
+  last = ts;
+  if (S.running && !S.paused && !S.over) update(dt);
+  if (S.dirty) { renderLists(); S.dirty = false; }
+  renderFrame();
+  requestAnimationFrame(frame);
+}
+
+newGame();
+renderStatic();
+showOverlay(startView);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
